@@ -6,10 +6,19 @@ on:
       - main
   workflow_dispatch:
 
-jobs:
-  build:
-    runs-on: windows-latest
+env:
+  PUBLISH_FOLDER: './myapp'
+  DOTNET_VERSION: '8.0.x'
 
+jobs:
+  build-and-deploy:
+    runs-on: windows-latest
+    environment:
+      name: 'Production'
+      url: ${{ steps.deploy-to-webapp.outputs.webapp-url }}
+    permissions:
+      id-token: write #This is required for requesting the JWT
+      
     steps:
       - uses: actions/checkout@v4
 
@@ -25,34 +34,8 @@ jobs:
         run: dotnet build --configuration Release
 
       - name: dotnet publish
-        run: dotnet publish -c Release -o 'Telegram-Anniversary-Bot-publish'
+        run: dotnet publish ./Telegram-Anniversary-Bot/Telegram-Anniversary-Bot.csproj -c Release -o '${{ env.PUBLISH_FOLDER }}/app_data/Jobs/Continuous/Telegram-Anniversary-Bot'
 
-      - name: Prepare WebJob Artifact
-        run: |
-          mkdir -p Telegram-Anniversary-Bot-publish/app_data/jobs/continuous/Telegram-Anniversary-Bot
-          cp -r Telegram-Anniversary-Bot-publish/* Telegram-Anniversary-Bot-publish/app_data/jobs/continuous/Telegram-Anniversary-Bot/
-
-      - name: Upload artifact for deployment job
-        uses: actions/upload-artifact@v4
-        with:
-          name: .net-app
-          path: 'Telegram-Anniversary-Bot-publish'
-
-  deploy:
-    runs-on: windows-latest
-    needs: build
-    environment:
-      name: 'Production'
-      url: ${{ steps.deploy-to-webapp.outputs.webapp-url }}
-    permissions:
-      id-token: write #This is required for requesting the JWT
-
-    steps:
-      - name: Download artifact from build job
-        uses: actions/download-artifact@v4
-        with:
-          name: .net-app
-      
       - name: Login to Azure
         uses: azure/login@v2
         with:
@@ -66,4 +49,4 @@ jobs:
         with:
           app-name: 'Telegram-Anniversary-Bot'
           slot-name: 'Production'
-          package: './Telegram-Anniversary-Bot-publish'
+          package: '${{ env.PUBLISH_FOLDER }}'
