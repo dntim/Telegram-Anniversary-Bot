@@ -18,17 +18,25 @@ jobs:
         with:
           dotnet-version: '8.x'
 
+      - name: Restore NuGet packages
+        run: dotnet restore --configfile nuget.config
+
       - name: Build with dotnet
         run: dotnet build --configuration Release
 
       - name: dotnet publish
-        run: dotnet publish -c Release -o '${{env.DOTNET_ROOT}}/app_data/Jobs/Continuous/Telegram-Anniversary-Bot'
+        run: dotnet publish -c Release -o 'Telegram-Anniversary-Bot-publish'
+
+      - name: Prepare WebJob Artifact
+        run: |
+          mkdir -p Telegram-Anniversary-Bot-publish/app_data/jobs/continuous/Telegram-Anniversary-Bot
+          cp -r Telegram-Anniversary-Bot-publish/* Telegram-Anniversary-Bot-publish/app_data/jobs/continuous/Telegram-Anniversary-Bot/
 
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
         with:
           name: .net-app
-          path: '${{env.DOTNET_ROOT}}/app_data/Jobs/Continuous/Telegram-Anniversary-Bot'
+          path: 'Telegram-Anniversary-Bot-publish'
 
   deploy:
     runs-on: windows-latest
@@ -58,5 +66,4 @@ jobs:
         with:
           app-name: 'Telegram-Anniversary-Bot'
           slot-name: 'Production'
-          package: .
-          
+          package: './Telegram-Anniversary-Bot-publish'
