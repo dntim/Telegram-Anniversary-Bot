@@ -17,7 +17,7 @@ namespace TelegramAnniversaryBot
         private readonly ITelegramBotClient _botClient;
         private readonly AnniversaryReminderBotDbContext _dbContext;
         private readonly CancellationTokenSource _cts = new();
-        private readonly List<long> _adminChatIDs = [78502881, 72807];
+        private readonly long[] _adminChatIDs = [78502881, 72807];
         private bool _turnOff = false;
         private DateTime _lastDbCheckedDT = DateTime.MinValue;
         private readonly int _checkDbIntervalInMinutes = 30;
@@ -34,6 +34,7 @@ namespace TelegramAnniversaryBot
             var me = await _botClient.GetMeAsync(cancellationToken);
             await _botClient.DropPendingUpdatesAsync();
             Console.WriteLine($"@{me.Username} is running...");
+            await _botClient.NotifyAdmins("I'm online", cancellationToken, _adminChatIDs);
 
             // Start background task for checking and sending updates
             _ = Task.Run(() => CheckAndSendNotificationsAsync(cancellationToken));
