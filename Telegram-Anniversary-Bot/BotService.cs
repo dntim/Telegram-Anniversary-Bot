@@ -108,7 +108,8 @@ namespace TelegramAnniversaryBot
             {
                 case "/send":
                 case "/send@AnniversaryReminderBot":
-                    await SendAnniversaryNotificationsAsync(UpdateTodaysEventsFromTheDatabase(), cancellationToken);
+                    await UpdateTodaysEventsFromTheDatabase();
+                    await SendAnniversaryNotificationsAsync(cancellationToken);
                     break;
 
                 case "/chatid":
@@ -176,7 +177,7 @@ namespace TelegramAnniversaryBot
                 }
 
                 // Check if anything needs to be sent right now
-                await SendAnniversaryNotificationsAsync(_todaysEvents, cancellationToken);
+                await SendAnniversaryNotificationsAsync(cancellationToken);
             }
         }
 
@@ -192,12 +193,12 @@ namespace TelegramAnniversaryBot
                 && date.DateTimeLastCongratulated.Value.Date != utcDate).ToListAsync();
         }
 
-        private async Task SendAnniversaryNotificationsAsync(List<AnniversaryReminderBotEvent> todaysEvents, CancellationToken cancellationToken)
+        private async Task SendAnniversaryNotificationsAsync(CancellationToken cancellationToken)
         {
             try
             {
                 bool dbUpdated = false;
-                foreach (var a in todaysEvents)
+                foreach (var a in _todaysEvents)
                 {
                     try
                     {
