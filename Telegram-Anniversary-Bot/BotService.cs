@@ -8,6 +8,7 @@ using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
 using Microsoft.Extensions.DependencyInjection;
 using TelegramAnniversaryBot.Models;
+using Microsoft.EntityFrameworkCore;
 
 namespace TelegramAnniversaryBot
 {
@@ -20,6 +21,7 @@ namespace TelegramAnniversaryBot
         private bool _turnOff = false;
         private DateTime _lastDbCheckedDT = DateTime.MinValue;
         private readonly int _checkDbIntervalInMinutes = 30;
+        private List<AnniversaryReminderBotEvent> _todaysEvents;
 
         public BotService(ITelegramBotClient botClient, AnniversaryReminderBotDbContext dbContext)
         {
@@ -105,7 +107,7 @@ namespace TelegramAnniversaryBot
             {
                 case "/send":
                 case "/send@AnniversaryReminderBot":
-                    await SendAnniversaryNotificationsAsync(GetTodaysEventsFromTheDatabase(), cancellationToken);
+                    await SendAnniversaryNotificationsAsync(UpdateTodaysEventsFromTheDatabase(), cancellationToken);
                     break;
 
                 case "/chatid":
@@ -160,7 +162,7 @@ namespace TelegramAnniversaryBot
 
         private async Task CheckAndSendNotificationsAsync(CancellationToken cancellationToken)
         {
-            var todaysEvents = GetTodaysEventsFromTheDatabase();
+            await UpdateTodaysEventsFromTheDatabase();
 
             while (!_turnOff)
             {
@@ -169,23 +171,24 @@ namespace TelegramAnniversaryBot
                 // Need to update from the database?
                 if (DateTime.Now.Subtract(_lastDbCheckedDT).TotalMinutes >= _checkDbIntervalInMinutes)
                 {
-                    todaysEvents = GetTodaysEventsFromTheDatabase();
+                    await UpdateTodaysEventsFromTheDatabase();
                 }
 
                 // Check if anything needs to be sent right now
-                await SendAnniversaryNotificationsAsync(todaysEvents, cancellationToken);
+                await SendAnniversaryNotificationsAsync(_todaysEvents, cancellationToken);
             }
         }
 
-        private List<AnniversaryReminderBotEvent> GetTodaysEventsFromTheDatabase()
+        private async Task UpdateTodaysEventsFromTheDatabase()
         {
             _lastDbCheckedDT = DateTime.Now;
             var utcDate = DateTime.UtcNow.Date;
 
-            return _dbContext.AnniversaryReminderBotEvents.Where(date =>
+            _todaysEvents = await _dbContext.AnniversaryReminderBotEvents.Where(date =>
                 date.EventDate.Month == utcDate.Month
                 && date.EventDate.Day == utcDate.Day
-                && date.DateTimeLastCongratulated.Value.Date != utcDate).ToList();
+                && date.DateTimeLastCongratulated != null
+                && date.DateTimeLastCongratulated.Value.Date != utcDate).ToListAsync();
         }
 
         private async Task SendAnniversaryNotificationsAsync(List<AnniversaryReminderBotEvent> todaysEvents, CancellationToken cancellationToken)
@@ -245,7 +248,11 @@ namespace TelegramAnniversaryBot
                     }
                 }
 
-                if (dbUpdated) await _dbContext.SaveChangesAsync(cancellationToken);
+                if (dbUpdated)
+                {
+                    await _dbContext.SaveChangesAsync(cancellationToken);
+                    await UpdateTodaysEventsFromTheDatabase();
+                }
             }
             catch (Exception ex)
             {
